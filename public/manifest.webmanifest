@@ -1,0 +1,10 @@
+{
+  "name": "Beam",
+  "short_name": "Beam",
+  "description": "Learn languages by reading, with in-context translations from Claude.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f6f2",
+  "theme_color": "#3f5bd8",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
