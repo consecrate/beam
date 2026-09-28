@@ -17,7 +17,7 @@ export interface JsonRequest {
  * Picks how to reach Claude:
  * - "api": ANTHROPIC_API_KEY is set (fastest; pay-as-you-go API billing).
  * - "subscription": your Claude Pro/Max plan, through the Claude Agent SDK,
- *   which runs Claude Code with the login from `claude login` (or
+ *   which runs Claude Code with this machine's Claude Code login (or
  *   CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`).
  * - "mock": canned answers for offline development and tests.
  * Override with BEAM_AI_PROVIDER.
@@ -28,31 +28,58 @@ export function providerName(): ProviderName {
   return process.env.ANTHROPIC_API_KEY ? "api" : "subscription";
 }
 
-export async function generateJson<T>(req: JsonRequest): Promise<T> {
+export async function generateJson<T>(req: JsonRequest, priority: Priority = "interactive"): Promise<T> {
   const name = providerName();
   if (name === "mock") {
     const { mockJson } = await import("./mock");
     return mockJson(req) as T;
   }
-  return limit(() => (name === "api" ? viaApi<T>(req) : viaSubscription<T>(req)));
+  return limit(priority, () => (name === "api" ? viaApi<T>(req) : viaSubscription<T>(req)));
 }
 
 // ---------- concurrency limit (each subscription call is a subprocess) ----------
 
-const MAX_CONCURRENT = Number(process.env.BEAM_AI_CONCURRENCY || 4);
-let running = 0;
-const waiting: (() => void)[] = [];
+/** "background" work (page prefetch) never takes the last free slot, so clicks stay responsive. */
+export type Priority = "interactive" | "background";
 
-async function limit<T>(fn: () => Promise<T>): Promise<T> {
-  if (running >= MAX_CONCURRENT) await new Promise<void>((r) => waiting.push(r));
-  running++;
-  try {
-    return await fn();
-  } finally {
-    running--;
-    waiting.shift()?.();
-  }
+const MAX_CONCURRENT = Math.max(2, Number(process.env.BEAM_AI_CONCURRENCY || 4));
+
+export function createLimiter(max: number) {
+  let running = 0;
+  let runningBackground = 0;
+  const waiting: { priority: Priority; start: () => void }[] = [];
+
+  const canStart = (p: Priority) => running < max && (p === "interactive" || runningBackground < max - 1);
+
+  // Claims slots synchronously, interactive requests first.
+  const pump = () => {
+    for (;;) {
+      let pick = waiting.findIndex((w) => w.priority === "interactive" && canStart("interactive"));
+      if (pick < 0) pick = waiting.findIndex((w) => canStart(w.priority));
+      if (pick < 0) return;
+      const w = waiting.splice(pick, 1)[0];
+      running++;
+      if (w.priority === "background") runningBackground++;
+      w.start();
+    }
+  };
+
+  return async function limit<T>(priority: Priority, fn: () => Promise<T>): Promise<T> {
+    await new Promise<void>((start) => {
+      waiting.push({ priority, start });
+      pump();
+    });
+    try {
+      return await fn();
+    } finally {
+      running--;
+      if (priority === "background") runningBackground--;
+      pump();
+    }
+  };
 }
+
+const limit = createLimiter(MAX_CONCURRENT);
 
 // ---------- Anthropic API ----------
 
@@ -100,7 +127,7 @@ async function viaSubscription<T>({ system, prompt, schema }: JsonRequest): Prom
       if (msg.structured_output !== undefined && msg.structured_output !== null) return msg.structured_output as T;
       return parseJson<T>(msg.result);
     }
-    throw new Error(`Claude Code request failed (${msg.subtype}). Is \`claude\` logged in? Run \`npx claude login\`.`);
+    throw new Error(`Claude Code request failed (${msg.subtype}). Log in to Claude Code on this machine (run \`claude\`), or set CLAUDE_CODE_OAUTH_TOKEN.`);
   }
   throw new Error("Claude Code returned no result.");
 }

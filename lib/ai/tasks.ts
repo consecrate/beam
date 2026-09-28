@@ -77,7 +77,7 @@ export async function glossBatch(p: { lang: string; native: string; items: { ter
     prompt: `Give a short in-context ${languageName(p.native)} gloss for each ${languageName(p.lang)} word below, as used in its sentence. Keep "term" exactly as given. translation: 1–4 words. lemma: dictionary form (infinitive with separable prefix for verbs, nominative singular for nouns). gender: m/f/n/pl for nouns, else "".
 
 ${list}`,
-  });
+  }, "background");
   return res.items;
 }
 

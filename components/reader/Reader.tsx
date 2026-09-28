@@ -187,10 +187,18 @@ export function Reader({ lessonId }: { lessonId: Id<"lessons"> }) {
     return { term, display, sentence: s.text, isPhrase, entry, mark };
   }, [sel, parsed, words, phraseMap, phraseMarks]);
 
-  // Warm the detailed lookup for a word as soon as it is hovered.
+  // Warm the detailed lookup for a word the pointer rests on, so the panel is
+  // ready on click. The dwell keeps casual mouse movement from queueing calls
+  // (each subscription call starts a Claude Code process).
+  const warmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warm = (sid: number, i: number) => {
+    if (warmTimer.current) clearTimeout(warmTimer.current);
     const t = parsed?.sentences[sid]?.tokens[i];
-    if (t?.term && words[t.term]?.status !== 5) void prefetchLookup(lang, native, t.term, parsed!.sentences[sid].text).catch(() => {});
+    const st = t?.term ? words[t.term]?.status : 5;
+    if (!t?.term || st === 5 || st === 0) return;
+    warmTimer.current = setTimeout(() => {
+      void prefetchLookup(lang, native, t.term!, parsed!.sentences[sid].text).catch(() => {});
+    }, 600);
   };
 
   const tokenAt = (e: ReactMouseEvent): { sid: number; i: number } | null => {
@@ -213,7 +221,10 @@ export function Reader({ lessonId }: { lessonId: Id<"lessons"> }) {
   const onMouseOver = (e: ReactMouseEvent) => {
     const hit = tokenAt(e);
     setHover(hit ? `${hit.sid}:${hit.i}` : null);
-    if (!hit) return;
+    if (!hit) {
+      if (warmTimer.current) clearTimeout(warmTimer.current);
+      return;
+    }
     const d = dragging.current;
     if (d && d.sentence === hit.sid && e.buttons === 1) {
       setSel({ sentence: hit.sid, a: Math.min(d.anchor, hit.i), b: Math.max(d.anchor, hit.i) });
@@ -448,16 +459,17 @@ export function Reader({ lessonId }: { lessonId: Id<"lessons"> }) {
     const key = `${sid}:${i}`;
     const mark = phraseMarks.get(key);
     const selected = sel && sel.sentence === sid && i >= sel.a && i <= sel.b;
+    const multi = sel && sel.a !== sel.b;
     if (t.kind !== "word") {
-      const inPhrase = mark || (sel && sel.sentence === sid && i > sel.a && i < sel.b);
-      if (inPhrase) return <span key={i} className={selected ? "w sel" : "w in-phrase"} style={{ padding: 0, margin: 0 }}>{t.text}</span>;
+      if (selected) return <span key={i} className="gap selm">{t.text}</span>;
+      if (mark) return <span key={i} className="gap in-phrase">{t.text}</span>;
       return <span key={i}>{t.text}</span>;
     }
     const w = words[t.term!];
     const gloss = glosses[t.term!];
     let cls = `w ${statusClass(w?.status)}`;
     if (mark) cls += ` in-phrase${mark.start ? " ph-start" : ""}${mark.end ? " ph-end" : ""}`;
-    if (selected) cls += " sel";
+    if (selected) cls += multi ? ` selm${i === sel!.a ? " selm-start" : ""}${i === sel!.b ? " selm-end" : ""}` : " sel";
     const gender = w?.gender || gloss?.gender;
     if (settings.showGenderColors && gender && /^\p{Lu}/u.test(t.text) && w?.status !== 0) cls += ` g-${gender}`;
     let tip: string | undefined;

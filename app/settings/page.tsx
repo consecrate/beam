@@ -24,6 +24,9 @@ export default function SettingsPage() {
   const [status, setStatus] = useState<Status | null>(null);
   const [test, setTest] = useState<{ busy: boolean; result?: string; ok?: boolean }>({ busy: false });
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  // Speech support is only known in the browser; decide after mount to keep hydration consistent.
+  const [canSpeak, setCanSpeak] = useState<boolean | null>(null);
+  useEffect(() => setCanSpeak(speechAvailable()), []);
 
   useEffect(() => {
     fetch("/api/ai/status").then((r) => r.json()).then(setStatus).catch(() => {});
@@ -65,9 +68,11 @@ export default function SettingsPage() {
           <button className="btn" onClick={runTest} disabled={test.busy}>{test.busy ? "Testing…" : "Test"}</button>
         </div>
         <p className="small muted" style={{ marginTop: 8 }}>
-          With no API key set, Beam uses your Claude subscription through the Claude Code login on this machine (
-          <code className="inline">npx claude login</code>). Set <code className="inline">ANTHROPIC_API_KEY</code> in{" "}
-          <code className="inline">.env.local</code> to use the API instead (faster per request).
+          With no API key set, Beam uses your Claude Pro/Max subscription through Claude Code on this machine. Log in once by running{" "}
+          <code className="inline">claude</code> and choosing your Claude account (or put a{" "}
+          <code className="inline">CLAUDE_CODE_OAUTH_TOKEN</code> from <code className="inline">claude setup-token</code> in{" "}
+          <code className="inline">.env.local</code>). Set <code className="inline">ANTHROPIC_API_KEY</code> instead to use the API, which
+          answers faster.
         </p>
       </section>
 
@@ -113,7 +118,7 @@ export default function SettingsPage() {
 
       <section className="card">
         <h2>Voice</h2>
-        {!speechAvailable() ? (
+        {canSpeak === null ? null : !canSpeak ? (
           <p className="muted">This browser has no speech synthesis.</p>
         ) : (
           <>

@@ -197,12 +197,12 @@ export function WordPanel(p: PanelProps) {
       </label>
 
       {isNew ? (
-        <div className="row">
-          <button className="btn primary grow" onClick={() => p.onSetStatus(1, extra())} title="Create LingQ (Enter)">
+        <div className="new-actions">
+          <button className="btn primary" onClick={() => p.onSetStatus(1, extra())} title="Create LingQ (Enter)">
             ＋ Save as LingQ
           </button>
           <button className="btn" onClick={() => p.onSetStatus(5, {})} title="I know this (K)">✓ Known</button>
-          <button className="btn ghost" onClick={() => p.onSetStatus(0, {})} title="Ignore (X)">Ignore</button>
+          <button className="btn ghost" onClick={() => p.onSetStatus(0, {})} title="Ignore names and foreign words (X)">Ignore</button>
         </div>
       ) : (
         <div className="status-bar" role="group" aria-label="Word status">

@@ -269,6 +269,13 @@ label.field .hint { font-weight: 400; color: var(--muted); font-size: 13px; }
 .w.in-phrase.ph-start { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
 .w.in-phrase.ph-end { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
 .w.sel { outline: 2px solid var(--w-selected); outline-offset: 1px; background: var(--accent-soft); }
+/* Multi-word selection: one continuous band across words and the spaces between them. */
+.w.selm, .gap.selm { background: var(--accent-soft); border-radius: 0; box-shadow: inset 0 -2px 0 var(--w-selected), inset 0 2px 0 var(--w-selected); }
+.w.selm-start { border-top-left-radius: 4px; border-bottom-left-radius: 4px; box-shadow: inset 2px -2px 0 var(--w-selected), inset 0 2px 0 var(--w-selected); }
+.w.selm-end { border-top-right-radius: 4px; border-bottom-right-radius: 4px; box-shadow: inset -2px -2px 0 var(--w-selected), inset 0 2px 0 var(--w-selected); }
+.w.selm-start.selm-end { box-shadow: inset 0 0 0 2px var(--w-selected); }
+.gap.in-phrase { background: var(--w-phrase); }
+.new-actions { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; }
 .w.g-m { box-shadow: inset 0 -2px 0 var(--g-m); }
 .w.g-f { box-shadow: inset 0 -2px 0 var(--g-f); }
 .w.g-n { box-shadow: inset 0 -2px 0 var(--g-n); }
